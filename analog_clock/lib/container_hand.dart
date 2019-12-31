@@ -19,7 +19,9 @@ class ContainerHand extends Hand {
     @required Color color,
     @required double size,
     @required double angleRadians,
-    this.child,
+    this.handColor,
+    this.height,
+    this.width,
   })  : assert(size != null),
         assert(angleRadians != null),
         super(
@@ -29,7 +31,10 @@ class ContainerHand extends Hand {
         );
 
   /// The child widget used as the clock hand and rotated by [angleRadians].
-  final Widget child;
+
+  final Color handColor;
+  final double height;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -40,10 +45,22 @@ class ContainerHand extends Hand {
           alignment: Alignment.center,
           child: Transform.scale(
             scale: size,
-            alignment: Alignment.center,
-            child: Container(
+            child: AnimatedContainer(
+              duration: Duration(seconds: 1),
               color: color,
-              child: Center(child: child),
+              child: Center(
+                child: Transform.translate(
+                  offset: Offset(0.0, -60.0),
+                  child: AnimatedContainer(
+                    height: height,
+                    width: width,
+                    duration: Duration(seconds: 1),
+                    decoration: BoxDecoration(
+                        color: handColor,
+                        borderRadius: BorderRadius.circular(30)),
+                  ),
+                ),
+              ),
             ),
           ),
         ),

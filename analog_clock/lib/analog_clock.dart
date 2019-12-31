@@ -4,14 +4,15 @@
 
 import 'dart:async';
 
+import 'package:analog_clock/container_hand.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_clock_helper/model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:intl/intl.dart';
 import 'package:vector_math/vector_math_64.dart' show radians;
 
-import 'container_hand.dart';
-import 'drawn_hand.dart';
+import 'dart:math' as math;
 
 /// Total distance traveled by a second or a minute hand, each second or minute,
 /// respectively.
@@ -19,6 +20,49 @@ final radiansPerTick = radians(360 / 60);
 
 /// Total distance traveled by an hour hand, each hour, in radians.
 final radiansPerHour = radians(360 / 12);
+
+class ClockColors {
+  Color h;
+  Color m;
+  Color s;
+  Color c;
+  Color background;
+  Color textColor;
+  ClockColors(
+    this.h,
+    this.m,
+    this.s,
+    this.c, {
+    this.background,
+    this.textColor,
+  });
+}
+
+class ClockTheme {
+  ClockColors light;
+  ClockColors dark;
+  ClockTheme.generateColors() {
+    var colors = Colors.primaries;
+    var color = colors[math.Random().nextInt(colors.length)];
+
+    light = ClockColors(
+      color.shade700,
+      color.shade400,
+      color.shade500,
+      color.shade500,
+      background: color.shade50,
+      textColor: Colors.black,
+    );
+    dark = ClockColors(
+      color.shade400,
+      color.shade100,
+      color.shade200,
+      color.shade200,
+      background: Colors.black,
+      textColor: Colors.white,
+    );
+  }
+}
 
 /// A basic analog clock.
 ///
@@ -39,7 +83,8 @@ class _AnalogClockState extends State<AnalogClock> {
   var _condition = '';
   var _location = '';
   Timer _timer;
-
+  ClockTheme _clockTheme = ClockTheme.generateColors();
+  final animDuration = Duration(seconds: 1);
   @override
   void initState() {
     super.initState();
@@ -77,6 +122,9 @@ class _AnalogClockState extends State<AnalogClock> {
   void _updateTime() {
     setState(() {
       _now = DateTime.now();
+      if (_now.second == 30 || _now.second == 0)
+        _clockTheme = ClockTheme.generateColors();
+
       // Update once per second. Make sure to do it at the beginning of each
       // new second, so that the clock is accurate.
       _timer = Timer(
@@ -88,33 +136,12 @@ class _AnalogClockState extends State<AnalogClock> {
 
   @override
   Widget build(BuildContext context) {
-    // There are many ways to apply themes to your clock. Some are:
-    //  - Inherit the parent Theme (see ClockCustomizer in the
-    //    flutter_clock_helper package).
-    //  - Override the Theme.of(context).colorScheme.
-    //  - Create your own [ThemeData], demonstrated in [AnalogClock].
-    //  - Create a map of [Color]s to custom keys, demonstrated in
-    //    [DigitalClock].
-    final customTheme = Theme.of(context).brightness == Brightness.light
-        ? Theme.of(context).copyWith(
-            // Hour hand.
-            primaryColor: Color(0xFF4285F4),
-            // Minute hand.
-            highlightColor: Color(0xFF8AB4F8),
-            // Second hand.
-            accentColor: Color(0xFF669DF6),
-            backgroundColor: Color(0xFFD2E3FC),
-          )
-        : Theme.of(context).copyWith(
-            primaryColor: Color(0xFFD2E3FC),
-            highlightColor: Color(0xFF4285F4),
-            accentColor: Color(0xFF8AB4F8),
-            backgroundColor: Color(0xFF3C4043),
-          );
+    final isLightTheme = Theme.of(context).brightness == Brightness.light;
+    final clockColors = isLightTheme ? _clockTheme.light : _clockTheme.dark;
 
     final time = DateFormat.Hms().format(DateTime.now());
     final weatherInfo = DefaultTextStyle(
-      style: TextStyle(color: customTheme.primaryColor),
+      style: TextStyle(color: clockColors.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -126,42 +153,62 @@ class _AnalogClockState extends State<AnalogClock> {
       ),
     );
 
+    final double topSize = 10;
     return Semantics.fromProperties(
       properties: SemanticsProperties(
         label: 'Analog clock with time $time',
         value: time,
       ),
-      child: Container(
-        color: customTheme.backgroundColor,
+      child: AnimatedContainer(
+        duration: Duration(seconds: 1),
+        padding: EdgeInsets.all(1),
+        decoration: BoxDecoration(
+          color: clockColors.background,
+          shape: BoxShape.circle,
+          border: Border.all(
+            width: 20,
+            color: clockColors.c,
+          ),
+        ),
         child: Stack(
+          alignment: Alignment.center,
           children: [
             // Example of a hand drawn with [CustomPainter].
-            DrawnHand(
-              color: customTheme.accentColor,
-              thickness: 4,
-              size: 1,
-              angleRadians: _now.second * radiansPerTick,
-            ),
-            DrawnHand(
-              color: customTheme.highlightColor,
-              thickness: 16,
-              size: 0.9,
-              angleRadians: _now.minute * radiansPerTick,
-            ),
-            // Example of a hand drawn with [Container].
+
             ContainerHand(
               color: Colors.transparent,
               size: 0.5,
               angleRadians: _now.hour * radiansPerHour +
                   (_now.minute / 60) * radiansPerHour,
-              child: Transform.translate(
-                offset: Offset(0.0, -60.0),
-                child: Container(
-                  width: 32,
-                  height: 150,
-                  decoration: BoxDecoration(
-                    color: customTheme.primaryColor,
-                  ),
+              width: 40,
+              height: 150,
+              handColor: clockColors.h,
+            ),
+            ContainerHand(
+              color: Colors.transparent,
+              size: 0.8,
+              angleRadians: _now.minute * radiansPerTick,
+              width: 25,
+              height: 140,
+              handColor: clockColors.m,
+            ),
+            ContainerHand(
+              color: Colors.transparent,
+              size: 0.8,
+              angleRadians: _now.second * radiansPerTick,
+              width: 8,
+              height: 140,
+              handColor: clockColors.s,
+            ),
+
+            Center(
+              child: Container(
+                width: topSize,
+                height: topSize,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(width: 1.5, color: clockColors.c),
+                  shape: BoxShape.circle,
                 ),
               ),
             ),
